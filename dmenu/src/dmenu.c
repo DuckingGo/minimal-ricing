@@ -16,8 +16,8 @@
 #endif
 #include <X11/Xft/Xft.h>
 
-#include "drw.h"
-#include "util.h"
+#include "../include/drw.h"
+#include "../include/util.h"
 
 /* macros */
 #define INTERSECT(x,y,w,h,r)  (MAX(0, MIN((x)+(w),(r).x_org+(r).width)  - MAX((x),(r).x_org)) \
@@ -52,7 +52,7 @@ static XIC xic;
 static Drw *drw;
 static Clr *scheme[SchemeLast];
 
-#include "config.h"
+#include "../build/config.h"
 
 static int (*fstrncmp)(const char *, const char *, size_t) = strncmp;
 static char *(*fstrstr)(const char *, const char *) = strstr;
@@ -80,19 +80,20 @@ appenditem(struct item *item, struct item **list, struct item **last)
 static void
 calcoffsets(void)
 {
-	int i, n;
+    unsigned int i, n;
 
-	if (lines > 0)
-		n = lines * bh;
-	else
-		n = mw - (promptw + inputw + TEXTW("<") + TEXTW(">"));
-	/* calculate which items will begin the next page and previous page */
-	for (i = 0, next = curr; next; next = next->right)
-		if ((i += (lines > 0) ? bh : textw_clamp(next->text, n)) > n)
-			break;
-	for (i = 0, prev = curr; prev && prev->left; prev = prev->left)
-		if ((i += (lines > 0) ? bh : textw_clamp(prev->left->text, n)) > n)
-			break;
+    if (lines > 0)
+        n = lines * bh;
+    else
+        n = mw - (promptw + inputw + TEXTW("<") + TEXTW(">"));
+    
+    for (i = 0, next = curr; next; next = next->right)
+        if ((i += (lines > 0) ? bh : textw_clamp(next->text, n)) > n)
+            break;
+            
+    for (i = 0, prev = curr; prev && prev->left; prev = prev->left)
+        if ((i += (lines > 0) ? bh : textw_clamp(prev->left->text, n)) > n)
+            break;
 }
 
 static void
@@ -296,12 +297,13 @@ insert(const char *str, ssize_t n)
 static size_t
 nextrune(int inc)
 {
-	ssize_t n;
-
-	/* return location of next utf8 rune in the given direction (+1 or -1) */
-	for (n = cursor + inc; n + inc >= 0 && (text[n] & 0xc0) == 0x80; n += inc)
-		;
-	return n;
+    ssize_t n;
+    for (n = cursor + inc; n + inc >= 0 && n + inc < (ssize_t)sizeof text; n += inc) {
+        unsigned char c = text[n];
+        if ((c & 0xC0) != 0x80)
+            break;
+    }
+    return n;
 }
 
 static void
@@ -530,46 +532,50 @@ draw:
 static void
 paste(void)
 {
-	char *p, *q;
-	int di;
-	unsigned long dl;
-	Atom da;
+    char *p = NULL, *q;
+    int di;
+    unsigned long dl;
+    Atom da;
 
-	/* we have been given the current selection, now insert it into input */
-	if (XGetWindowProperty(dpy, win, utf8, 0, (sizeof text / 4) + 1, False,
-	                   utf8, &da, &di, &dl, &dl, (unsigned char **)&p)
-	    == Success && p) {
-		insert(p, (q = strchr(p, '\n')) ? q - p : (ssize_t)strlen(p));
-		XFree(p);
-	}
-	drawmenu();
+    if (XGetWindowProperty(dpy, win, utf8, 0, (sizeof text / 4) + 1, False,
+                       utf8, &da, &di, &dl, &dl, (unsigned char **)&p)
+        == Success && p) {
+        size_t len = strnlen(p, sizeof(text) - 1);
+        q = memchr(p, '\n', len);
+        insert(p, q ? (q - p) : len);
+        if (p) XFree(p);
+    }
+    drawmenu();
 }
 
 static void
 readstdin(void)
 {
-	char *line = NULL;
-	size_t i, itemsiz = 0, linesiz = 0;
-	ssize_t len;
+    char *line = NULL;
+    size_t i, itemsiz = 0, linesiz = 0;
+    ssize_t len;
 
-	/* read each line from stdin and add it to the item list */
-	for (i = 0; (len = getline(&line, &linesiz, stdin)) != -1; i++) {
-		if (i + 1 >= itemsiz) {
-			itemsiz += 256;
-			if (!(items = realloc(items, itemsiz * sizeof(*items))))
-				die("cannot realloc %zu bytes:", itemsiz * sizeof(*items));
-		}
-		if (line[len - 1] == '\n')
-			line[len - 1] = '\0';
-		if (!(items[i].text = strdup(line)))
-			die("strdup:");
+    for (i = 0; (len = getline(&line, &linesiz, stdin)) != -1; i++) {
+        if (i + 1 >= itemsiz) {
+            itemsiz = itemsiz ? itemsiz * 2 : 256;
+            items = reallocarray(items, itemsiz, sizeof(*items));
+            if (!items)
+                die("cannot realloc %zu bytes:", itemsiz * sizeof(*items));
+        }
+        
+        if (len > 0 && line[len-1] == '\n')
+            line[len-1] = '\0';
+        
+        items[i].text = strdup(line);
+        if (!items[i].text)
+            die("strdup:");
 
-		items[i].out = 0;
-	}
-	free(line);
-	if (items)
-		items[i].text = NULL;
-	lines = MIN(lines, i);
+        items[i].out = 0;
+    }
+    free(line);
+    if (items)
+        items[i].text = NULL;
+    lines = MIN(lines, i);
 }
 
 static void
