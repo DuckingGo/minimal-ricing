@@ -1,0 +1,45 @@
+name: Create Releases
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Create packages
+      run: |
+        mkdir -p dist
+        
+        # Package dmenu
+        cd dmenu
+        mkdir -p dmenu-${VERSION}
+        cp -r include src man scripts LICENSE CMakeLists.txt dmenu-${VERSION}
+        tar czvf ../dist/dmenu-${VERSION}.tar.gz dmenu-${VERSION}
+        
+        # Package dwm
+        cd ../dwm
+        mkdir -p dwm-${VERSION}
+        cp -r * dwm-${VERSION}
+        tar czvf ../dist/dwm-${VERSION}.tar.gz dwm-${VERSION}
+        
+        # Package st
+        cd ../st
+        mkdir -p st-${VERSION}
+        cp -r * st-${VERSION}
+        tar czvf ../dist/st-${VERSION}.tar.gz st-${VERSION}
+        
+        echo "VERSION=${VERSION}" >> $GITHUB_ENV
+
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/*.tar.gz
+        tag_name: v${{ env.VERSION }}
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
