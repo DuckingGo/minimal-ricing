@@ -1,2 +1,3 @@
 .vscode/
 dmenu/build/
+.github/workflows/release.yml
