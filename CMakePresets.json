@@ -1,0 +1,59 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 15,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "ci",
+      "displayName": "CI Configuration",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "/usr/local",
+        "WITH_XINERAMA": "ON",
+        "WITH_STEST": "ON"
+      }
+    },
+    {
+      "name": "dev-xinerama",
+      "displayName": "Development with Xinerama",
+      "inherits": "ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "dev-no-xinerama",
+      "displayName": "Development without Xinerama",
+      "inherits": "ci",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "WITH_XINERAMA": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "ci",
+      "configurePreset": "ci",
+      "jobs": 4
+    },
+    {
+      "name": "dev",
+      "configurePreset": "dev-xinerama"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "test",
+      "configurePreset": "ci",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
