@@ -1,0 +1,50 @@
+name: CodeQL Analysis
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'cpp' ]
+        project: [ 'dmenu', 'dwm', 'st' ]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: ${{ matrix.language }}
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libx11-dev \
+          libxft-dev \
+          libfontconfig1-dev
+
+    - name: Build project
+      working-directory: ./${{ matrix.project }}
+      run: |
+        if [ -f "CMakeLists.txt" ]; then
+          mkdir build
+          cd build
+          cmake ..
+        elif [ -f "Makefile" ]; then
+          make
+        fi
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
